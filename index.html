@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
+  <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js'></script>
+  <link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css' rel='stylesheet' />
+  
+  <title>Map</title>
+</head>
+<body>
+
+  <section>
+    <div id="map" style="width:80%; height:600px;"></div>
+  </section>
+
+  <script>
+    /**
+     * Original image "png" size for reference
+     */
+    const original_image_width = 1920;
+    const original_image_height = 1234;
+
+    /**
+     * div element
+     */
+    const map_div = document.getElementById('map');
+
+    /**
+     * Current map (div) width and height
+     */
+    var map_width = map_div.getBoundingClientRect().width;
+    var map_height = map_div.getBoundingClientRect().height;
+
+    /**
+     * Image Bounds for future use
+     */
+    var image_bounds = null;
+
+    /**
+     * Basic map init with div size
+     */
+    const map_bounds = new L.LatLngBounds(new L.LatLng(0, 0), new L.LatLng(map_height, map_width));
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      center: map_bounds.getCenter(),
+      minZoom: 0,
+      maxBounds: map_bounds,
+      maxBoundsViscosity: 1.0,
+      fullscreenControl: true
+    });
+    const image = L.imageOverlay('world-map-1920.jpg', map_bounds).addTo(map);
+
+    /**
+     * Marker array (fetch from database)
+     */
+    const markers = [];
+    const db_pins = [
+      { name: 'Haguelet', latLng: [402, 819] },
+      { name: 'Valogne', latLng: [810, 678] }
+    ];
+
+    /**
+     * Marker loop to set marker on the map with their click event
+     */
+    db_pins.forEach((pin) => {
+      markers.push(L.marker(L.latLng(pin.latLng), {originalLatLng:pin.latLng}).addTo(map));
+      markers[markers.length-1].addEventListener('click', function(e) {
+        // code du popup
+        alert(pin.name);
+      });
+    });
+
+    /**
+     * Map resizing function
+     */
+    function resizeMap() {
+      // Calculate div resized ratio versus original image size
+      var r_width = Math.round((map_div.offsetWidth / original_image_width) * 100) / 100;
+      var r_height = Math.round((map_div.offsetHeight / original_image_height) * 100) / 100;
+      var new_image_height = 0;
+      var new_image_width = 0;
+      // validate how it got resized
+      if (r_width == r_height) {
+        new_image_height = map_div.offsetHeight;
+        new_image_width = map_div.offsetWidth;
+      }
+      else if (r_width > r_height) {
+        new_image_width = map_div.offsetWidth;
+        new_image_height = original_image_height * r_width;
+      }
+      else {
+        new_image_width = original_image_width * r_height;
+        new_image_height = map_div.offsetHeight;
+      }
+      // Calculare resize ratio of the image
+      var r_image = new_image_width / original_image_width;
+      // Replace marker according to image resize ratio
+      markers.forEach((marker) => {
+        var new_latLng = L.latLng(marker.options.originalLatLng[0]*r_image, marker.options.originalLatLng[1]*r_image);
+        marker.setLatLng(new_latLng);
+      });
+      // set new image bounds
+      image_bounds = new L.LatLngBounds(new L.LatLng(0, 0), new L.LatLng(new_image_height, new_image_width));
+      // adjust map, center and image
+      map.setMaxBounds(image_bounds);
+      map.panTo(image_bounds.getCenter());
+      image.setBounds(image_bounds);
+    }
+
+    /**
+     * Listen to "map_div" resize and call resizeMap function
+     */
+    const resizer = new ResizeObserver(resizeMap).observe(map_div)
+    /**
+     * Listen to map fullscreen change and call resizeMap function
+     */
+    map.on('fullscreenchange', function () {
+      reziseMap();
+    });
+
+    /**
+     * Map click event for the konsole
+     */
+    map.addEventListener('click', function(e) {
+      // calculate ratio between current lat lng according to current map size versus original image size
+      var current_image_size = image_bounds.getNorthEast();
+      var r_width = original_image_width / current_image_size.lng;
+      var r_height = original_image_height / current_image_size.lat;
+      // set lat lng to fit original image size
+      alert("You clicked the map at latitude: " + e.latlng.lat*r_height + " and longitude: " + e.latlng.lng*r_width);
+    });
+
+  </script>
+</body>
+</html>
